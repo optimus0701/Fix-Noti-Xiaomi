@@ -13,3 +13,4 @@
 *.klib
 *.jks
 keystore.properties
+*.log
