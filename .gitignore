@@ -11,3 +11,5 @@
 *.apk
 *.aar
 *.klib
+*.jks
+keystore.properties

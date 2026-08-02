@@ -10,11 +10,16 @@ import com.example.fixnoti.model.OpStatus
 import com.example.fixnoti.shizuku.ShizukuShellExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AppRepository {
 
     companion object {
-        private const val GITHUB_RAW_URL = "https://raw.githubusercontent.com/optimus0701/Fix-Noti-Xiaomi/main/user_apps.txt"
+        private const val JSDELIVR_RAW_URL = "https://cdn.jsdelivr.net/gh/optimus0701/Fix-Noti-Xiaomi@master/user_apps.txt"
+        private const val GITHUB_RAW_URL = "https://raw.githubusercontent.com/optimus0701/Fix-Noti-Xiaomi/master/user_apps.txt"
+
+        @Volatile
+        private var cachedRecommendedPackages: Set<String>? = null
 
         private val DEFAULT_RECOMMENDED_PACKAGES = setOf(
             // Mạng xã hội & Nhắn tin
@@ -57,29 +62,43 @@ class AppRepository {
     }
 
     suspend fun fetchRecommendedPackageNames(): Set<String> = withContext(Dispatchers.IO) {
-        try {
-            val url = java.net.URL(GITHUB_RAW_URL)
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
-            connection.requestMethod = "GET"
+        cachedRecommendedPackages?.let { return@withContext it }
 
-            if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                val text = connection.inputStream.bufferedReader().use { it.readText() }
-                val parsed = text.lines()
-                    .map { line ->
-                        var l = line.trim()
-                        if (l.startsWith("package:")) l = l.substring("package:".length).trim()
-                        l
-                    }
-                    .filter { line -> line.isNotEmpty() && !line.startsWith("#") }
-                    .toSet()
+        val urls = listOf(JSDELIVR_RAW_URL, GITHUB_RAW_URL)
+        for (urlString in urls) {
+            try {
+                val result = withTimeoutOrNull(2500L) {
+                    val url = java.net.URL(urlString)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.connectTimeout = 2000
+                    connection.readTimeout = 2000
+                    connection.requestMethod = "GET"
+                    connection.setRequestProperty("User-Agent", "FixNotiXiaomi/1.0")
 
-                if (parsed.isNotEmpty()) return@withContext parsed
+                    if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                        val text = connection.inputStream.bufferedReader().use { it.readText() }
+                        val parsed = text.lines()
+                            .map { line ->
+                                var l = line.trim()
+                                if (l.startsWith("package:")) l = l.substring("package:".length).trim()
+                                l
+                            }
+                            .filter { line -> line.isNotEmpty() && !line.startsWith("#") }
+                            .toSet()
+
+                        if (parsed.isNotEmpty()) parsed else null
+                    } else null
+                }
+                if (result != null && result.isNotEmpty()) {
+                    cachedRecommendedPackages = result
+                    return@withContext result
+                }
+            } catch (e: Exception) {
+                // Ignore network failure and try next or fallback
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
+
+        cachedRecommendedPackages = DEFAULT_RECOMMENDED_PACKAGES
         DEFAULT_RECOMMENDED_PACKAGES
     }
 
