@@ -1,0 +1,37 @@
+# Mạng xã hội & Nhắn tin (Social Media & Messaging)
+com.zing.zalo
+com.facebook.orca
+com.facebook.katana
+org.telegram.messenger
+com.whatsapp
+com.instagram.android
+com.instagram.barcelona
+com.zhiliaoapp.musically
+com.ss.android.ugc.trill
+com.locket.Locket
+com.discord
+com.viber.voip
+jp.naver.line.android
+com.tencent.mm
+com.twitter.android
+com.skype.raider
+
+# Ngân hàng & Ví điện tử (Banking & E-Wallets)
+com.mservice.momotransfer
+com.mbmobile
+com.vietcombank.phone
+vn.com.techcombank.bb.app
+com.vpb.neo
+com.vnpay.bidv
+com.vietinbank.ipay
+com.vnpay.agribank3g
+com.acb.mobile
+com.tpb.mb.gprsauto
+com.sacombank.mbanking
+com.msb.mb
+com.vib.myvib2
+vn.cake.app
+vn.vnpay.vnpaywallet
+vn.com.vng.zalopay
+com.bplus.vtpay
+com.airpay.consumer
