@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +33,13 @@ fun AppListScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+
+    // Tự động kiểm tra và yêu cầu quyền Shizuku khi màn hình được tạo
+    LaunchedEffect(Unit) {
+        if (!uiState.isShizukuGranted) {
+            onRequestShizukuPermission()
+        }
+    }
 
     val filteredApps = MainViewModel.getFilteredApps(uiState.appList, uiState.searchQuery)
     val selectedCount = uiState.appList.count { it.isSelected }

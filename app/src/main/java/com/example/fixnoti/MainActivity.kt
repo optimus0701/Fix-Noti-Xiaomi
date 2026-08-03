@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
                     AppListScreen(
                         viewModel = viewModel,
                         onRequestShizukuPermission = {
-                            shizukuManager.checkAndRequestPermission()
+                            shizukuManager.checkAndRequestPermissionWithRetry()
                         }
                     )
                 }
@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Tự động kiểm tra & hỏi quyền Shizuku nếu chưa được cấp khi quay lại màn hình
-        shizukuManager.checkAndRequestPermission()
+        shizukuManager.checkAndRequestPermissionWithRetry()
     }
 
     override fun onDestroy() {

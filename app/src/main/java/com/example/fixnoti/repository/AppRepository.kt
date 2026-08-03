@@ -104,51 +104,94 @@ class AppRepository {
 
     suspend fun getInstalledApps(context: Context, showAll: Boolean = false): List<AppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
-        val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
-        val result = mutableListOf<AppInfo>()
+        val resultPackageNames = mutableSetOf<String>()
+        val appInfoMap = mutableMapOf<String, AppInfo>()
 
-        val recommendedPackages = if (!showAll) fetchRecommendedPackageNames() else emptySet()
+        // 1. Thử lấy danh sách package từ PackageManager chuẩn của Android
+        try {
+            val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA)
+            for (pkg in packages) {
+                val appInfo = pkg.applicationInfo ?: continue
+                val packageName = pkg.packageName
+                val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                        (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                val isGoogleGms = packageName == "com.google.android.gms"
 
-        for (pkg in packages) {
-            val appInfo = pkg.applicationInfo ?: continue
-            val packageName = pkg.packageName
+                if (isUserApp || isGoogleGms) {
+                    resultPackageNames.add(packageName)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-            val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
-                    (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        // 2. Nếu Shizuku đã được cấp quyền, lấy thêm từ Shizuku Shell (bỏ qua giới hạn MIUI Security)
+        if (ShizukuShellExecutor.isPermissionGranted()) {
+            try {
+                val shellOutput = ShizukuShellExecutor.executeCommand("pm list packages")
+                shellOutput.lines().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("package:")) {
+                        val pkgName = trimmed.substring("package:".length).trim()
+                        if (pkgName.isNotEmpty()) {
+                            resultPackageNames.add(pkgName)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
 
-            // Bắt buộc thêm Dịch vụ Google Play vào danh sách
+        // 3. Dự phòng cho MIUI/Xiaomi: Nếu danh sách ứng dụng bị hạn chế do MIUI chặn `getInstalledPackages`,
+        // ta trực tiếp kiểm tra sự tồn tại của các ứng dụng trong danh sách Đề xuất (Banking & MXH) bằng `getApplicationInfo`
+        val recommendedPackages = fetchRecommendedPackageNames()
+        val targetPackageSet = if (showAll) {
+            resultPackageNames + recommendedPackages + "com.google.android.gms"
+        } else {
+            recommendedPackages + "com.google.android.gms"
+        }
+
+        // 4. Xây dựng danh sách AppInfo đầy đủ với tên ứng dụng và icon
+        for (packageName in targetPackageSet) {
             val isGoogleGms = packageName == "com.google.android.gms"
+            if (!showAll && !isGoogleGms && !recommendedPackages.contains(packageName)) {
+                continue
+            }
 
-            if (isUserApp || isGoogleGms) {
-                // Nếu ở chế độ ứng dụng đề xuất, chỉ lấy các app nằm trong danh sách hoặc GMS
-                if (!showAll && !isGoogleGms && !recommendedPackages.contains(packageName)) {
-                    continue
-                }
+            try {
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                        (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
 
-                val label = try {
-                    pm.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
-                    packageName
-                }
-                val icon = try {
-                    pm.getApplicationIcon(appInfo)
-                } catch (e: Exception) {
-                    null
-                }
+                if (isUserApp || isGoogleGms) {
+                    val label = try {
+                        pm.getApplicationLabel(appInfo).toString()
+                    } catch (e: Exception) {
+                        packageName
+                    }
+                    val icon = try {
+                        pm.getApplicationIcon(appInfo)
+                    } catch (e: Exception) {
+                        null
+                    }
 
-                result.add(
-                    AppInfo(
+                    appInfoMap[packageName] = AppInfo(
                         appName = if (isGoogleGms) "$label (Google Play Services)" else label,
                         packageName = packageName,
                         icon = icon,
                         isGoogleGms = isGoogleGms
                     )
-                )
+                }
+            } catch (e: PackageManager.NameNotFoundException) {
+                // Ứng dụng không thực sự được cài đặt trên máy này
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
-        // Sắp xếp Google Play Services lên đầu, sau đó xếp theo tên
-        result.sortedWith(compareByDescending<AppInfo> { it.isGoogleGms }.thenBy { it.appName.lowercase() })
+        val resultList = appInfoMap.values.toList()
+        resultList.sortedWith(compareByDescending<AppInfo> { it.isGoogleGms }.thenBy { it.appName.lowercase() })
     }
 
     suspend fun checkAppDetailStatus(packageName: String): AppDetailStatus = withContext(Dispatchers.IO) {
