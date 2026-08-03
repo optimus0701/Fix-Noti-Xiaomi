@@ -6,6 +6,7 @@ enum class OpStatus {
     ALLOWED,
     IGNORED,
     DENIED,
+    DEFAULT,
     UNKNOWN;
 
     fun isOk(): Boolean = this == ALLOWED
@@ -17,8 +18,12 @@ data class AppDetailStatus(
     val runInBackground: OpStatus = OpStatus.UNKNOWN,
     val runAnyInBackground: OpStatus = OpStatus.UNKNOWN,
     val autoStart: OpStatus = OpStatus.UNKNOWN,
+    val autoRevokePermissions: OpStatus = OpStatus.UNKNOWN,
+    val isMilletWhiteSupported: Boolean = false,
     val isMilletWhite: Boolean = false,
+    val isCloudLowLatencySupported: Boolean = false,
     val isCloudLowLatency: Boolean = false,
+    val isMilletNoRestrictSupported: Boolean = false,
     val isMilletNoRestrict: Boolean = false
 ) {
     fun isAllOptimized(isGms: Boolean = false): Boolean {
@@ -28,11 +33,17 @@ data class AppDetailStatus(
                 standbyBucket.contains("5")
 
         val autoStartOk = autoStart.isOk() || autoStart == OpStatus.UNKNOWN
-        val baseOk = isWhitelisted && isBucketOk && runInBackground.isOk() && runAnyInBackground.isOk() && autoStartOk
+        val autoRevokeOk = autoRevokePermissions == OpStatus.IGNORED || autoRevokePermissions == OpStatus.UNKNOWN
+        val baseOk = isWhitelisted && isBucketOk && runInBackground.isOk() && runAnyInBackground.isOk() && autoStartOk && autoRevokeOk
+
+        val milletWhiteOk = !isMilletWhiteSupported || isMilletWhite
+        val cloudLowLatencyOk = !isCloudLowLatencySupported || isCloudLowLatency
+        val milletNoRestrictOk = !isMilletNoRestrictSupported || isMilletNoRestrict
+
         return if (isGms) {
             baseOk
         } else {
-            baseOk && isMilletWhite && isCloudLowLatency && isMilletNoRestrict
+            baseOk && milletWhiteOk && cloudLowLatencyOk && milletNoRestrictOk
         }
     }
 }

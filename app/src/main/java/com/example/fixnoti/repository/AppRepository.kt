@@ -215,11 +215,15 @@ class AppRepository {
         val autoStartOutput = ShizukuShellExecutor.executeCommand("cmd appops get $packageName 10008")
         val autoStart = parseOpStatus(autoStartOutput)
 
-        // 6, 7, 8. Check MIUI System Tables (Skip for Google Play Services)
+        // 6. Check AppOp AUTO_REVOKE_PERMISSIONS_IF_UNUSED (Manage if unused)
+        val autoRevokeOutput = ShizukuShellExecutor.executeCommand("appops get $packageName AUTO_REVOKE_PERMISSIONS_IF_UNUSED")
+        val autoRevokePermissions = parseOpStatus(autoRevokeOutput)
+
+        // 7, 8, 9. Check MIUI System Tables (Skip for Google Play Services)
         val isGms = packageName == "com.google.android.gms"
-        val isMilletWhite = if (isGms) true else isPkgInSystemSetting("millet_white", packageName)
-        val isCloudLowLatency = if (isGms) true else isPkgInSystemSetting("cloud_lowlatency_whitelist", packageName)
-        val isMilletNoRestrict = if (isGms) true else isPkgInSystemSetting("MILLET_NO_RESTRICT_APP", packageName)
+        val (isMilletWhiteSupported, isMilletWhite) = if (isGms) Pair(false, true) else checkSystemSetting("millet_white", packageName)
+        val (isCloudLowLatencySupported, isCloudLowLatency) = if (isGms) Pair(false, true) else checkSystemSetting("cloud_lowlatency_whitelist", packageName)
+        val (isMilletNoRestrictSupported, isMilletNoRestrict) = if (isGms) Pair(false, true) else checkSystemSetting("MILLET_NO_RESTRICT_APP", packageName)
 
         AppDetailStatus(
             isWhitelisted = isWhitelisted,
@@ -227,8 +231,12 @@ class AppRepository {
             runInBackground = runInBackground,
             runAnyInBackground = runAnyInBackground,
             autoStart = autoStart,
+            autoRevokePermissions = autoRevokePermissions,
+            isMilletWhiteSupported = isMilletWhiteSupported,
             isMilletWhite = isMilletWhite,
+            isCloudLowLatencySupported = isCloudLowLatencySupported,
             isCloudLowLatency = isCloudLowLatency,
+            isMilletNoRestrictSupported = isMilletNoRestrictSupported,
             isMilletNoRestrict = isMilletNoRestrict
         )
     }
@@ -256,16 +264,26 @@ class AppRepository {
         onLog(FixLog(name, pkg, "Đang bật quyền RUN_ANY_IN_BACKGROUND -> ALLOW..."))
         ShizukuShellExecutor.executeCommand("cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow")
 
-        // 5. Fix MIUI System Table Keys (Ngoại trừ Dịch vụ Google Play)
+        // 5. Fix Manage if unused (AUTO_REVOKE_PERMISSIONS_IF_UNUSED) -> ignore
+        onLog(FixLog(name, pkg, "Đang thiết lập Manage if unused -> IGNORE..."))
+        ShizukuShellExecutor.executeCommand("appops set --user 0 $pkg AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore")
+
+        // 6. Fix MIUI System Table Keys (Ngoại trừ Dịch vụ Google Play và chỉ khi có trong system table)
         if (!app.isGoogleGms) {
-            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: millet_white..."))
-            addToSystemSetting("millet_white", pkg)
+            if (isSystemSettingKeyPresent("millet_white")) {
+                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: millet_white..."))
+                addToSystemSetting("millet_white", pkg)
+            }
 
-            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: cloud_lowlatency_whitelist..."))
-            addToSystemSetting("cloud_lowlatency_whitelist", pkg)
+            if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
+                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: cloud_lowlatency_whitelist..."))
+                addToSystemSetting("cloud_lowlatency_whitelist", pkg)
+            }
 
-            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: MILLET_NO_RESTRICT_APP..."))
-            addToSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+            if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
+                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: MILLET_NO_RESTRICT_APP..."))
+                addToSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+            }
         }
 
         onLog(FixLog(name, pkg, "✓ Hoàn thành tối ưu cho $name!", isSuccess = true))
@@ -299,17 +317,27 @@ class AppRepository {
                 onLog?.invoke(FixLog(name, pkg, "Đang đặt RUN_ANY_IN_BACKGROUND -> IGNORE..."))
                 ShizukuShellExecutor.executeCommand("cmd appops set $pkg RUN_ANY_IN_BACKGROUND ignore")
             }
+            "AUTO_REVOKE_IF_UNUSED" -> {
+                onLog?.invoke(FixLog(name, pkg, "Đang đặt Manage if unused -> ALLOW..."))
+                ShizukuShellExecutor.executeCommand("appops set --user 0 $pkg AUTO_REVOKE_PERMISSIONS_IF_UNUSED allow")
+            }
             "MILLET_WHITE" -> {
-                onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
-                removeFromSystemSetting("millet_white", pkg)
+                if (isSystemSettingKeyPresent("millet_white")) {
+                    onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
+                    removeFromSystemSetting("millet_white", pkg)
+                }
             }
             "CLOUD_LOWLATENCY" -> {
-                onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
-                removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
+                if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
+                    onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
+                    removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
+                }
             }
             "MILLET_NO_RESTRICT" -> {
-                onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
-                removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+                if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
+                    onLog?.invoke(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
+                    removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+                }
             }
             "AUTO_START" -> {
                 openAppSettings(pkg)
@@ -337,20 +365,44 @@ class AppRepository {
         onLog(FixLog(name, pkg, "Đang tắt quyền RUN_ANY_IN_BACKGROUND -> IGNORE..."))
         ShizukuShellExecutor.executeCommand("cmd appops set $pkg RUN_ANY_IN_BACKGROUND ignore")
 
+        onLog(FixLog(name, pkg, "Đang đặt lại Manage if unused -> ALLOW..."))
+        ShizukuShellExecutor.executeCommand("appops set --user 0 $pkg AUTO_REVOKE_PERMISSIONS_IF_UNUSED allow")
+
         if (!app.isGoogleGms) {
-            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
-            removeFromSystemSetting("millet_white", pkg)
+            if (isSystemSettingKeyPresent("millet_white")) {
+                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
+                removeFromSystemSetting("millet_white", pkg)
+            }
 
-            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
-            removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
+            if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
+                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
+                removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
+            }
 
-            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
-            removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+            if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
+                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
+                removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
+            }
         }
 
         onLog(FixLog(name, pkg, "✓ Hoàn tất hủy bỏ tất cả cấu hình cho $name!", isSuccess = true))
 
         checkAppDetailStatus(pkg)
+    }
+
+    private fun checkSystemSetting(key: String, packageName: String): Pair<Boolean, Boolean> {
+        val output = ShizukuShellExecutor.executeCommand("settings get system $key").trim()
+        if (output == "null" || output.isBlank()) {
+            return Pair(false, false)
+        }
+        val list = output.split(';', ',', ':', ' ').map { it.trim() }
+        val isPresent = list.contains(packageName)
+        return Pair(true, isPresent)
+    }
+
+    private fun isSystemSettingKeyPresent(key: String): Boolean {
+        val output = ShizukuShellExecutor.executeCommand("settings get system $key").trim()
+        return output != "null" && output.isNotBlank()
     }
 
     private fun isPkgInSystemSetting(key: String, packageName: String): Boolean {
@@ -449,10 +501,17 @@ class AppRepository {
     }
 
     private fun parseOpStatus(output: String): OpStatus {
+        val nonUidLines = output.lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("Uid mode:", ignoreCase = true) }
+
+        val targetOutput = if (nonUidLines.isNotEmpty()) nonUidLines.joinToString("\n") else output
+
         return when {
-            output.contains("allow", ignoreCase = true) -> OpStatus.ALLOWED
-            output.contains("ignore", ignoreCase = true) -> OpStatus.IGNORED
-            output.contains("deny", ignoreCase = true) -> OpStatus.DENIED
+            targetOutput.contains("allow", ignoreCase = true) -> OpStatus.ALLOWED
+            targetOutput.contains("ignore", ignoreCase = true) -> OpStatus.IGNORED
+            targetOutput.contains("deny", ignoreCase = true) -> OpStatus.DENIED
+            targetOutput.contains("default", ignoreCase = true) -> OpStatus.DEFAULT
             else -> OpStatus.UNKNOWN
         }
     }

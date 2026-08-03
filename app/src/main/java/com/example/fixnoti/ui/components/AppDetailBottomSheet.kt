@@ -166,6 +166,7 @@ fun AppDetailBottomSheet(
                     OpStatus.ALLOWED -> "ĐÃ BẬT (ALLOW)"
                     OpStatus.IGNORED -> "ĐÃ TẮT (IGNORE)"
                     OpStatus.DENIED -> "ĐÃ TẮT (DENY)"
+                    OpStatus.DEFAULT -> "Default"
                     OpStatus.UNKNOWN -> "Không lấy được giá trị"
                 }
                 DetailItemRow(
@@ -177,33 +178,57 @@ fun AppDetailBottomSheet(
                     onActionClick = { onOpenAppSettings() }
                 )
 
+                // 6. Manage if unused (AUTO_REVOKE_PERMISSIONS_IF_UNUSED)
+                val isAutoRevokeOk = status.autoRevokePermissions == OpStatus.IGNORED
+                val autoRevokeStatusText = when (status.autoRevokePermissions) {
+                    OpStatus.IGNORED -> "ĐÃ TẮT TỰ THU HỒI (IGNORE - An toàn)"
+                    OpStatus.ALLOWED -> "ĐÃ BẬT TỰ THU HỒI (ALLOW - Nguy cơ mất quyền)"
+                    OpStatus.DENIED -> "ĐÃ TẮT (DENY)"
+                    OpStatus.DEFAULT -> "Default"
+                    OpStatus.UNKNOWN -> "Không lấy được giá trị"
+                }
+                DetailItemRow(
+                    title = "6. Manage if unused",
+                    subtitle = "Tự động thu hồi quyền khi không dùng (AUTO_REVOKE_PERMISSIONS_IF_UNUSED)",
+                    isOk = isAutoRevokeOk,
+                    statusText = autoRevokeStatusText,
+                    actionText = if (isAutoRevokeOk) "Thu hồi" else null,
+                    onActionClick = if (isAutoRevokeOk) { { onRevokeSinglePermission("AUTO_REVOKE_IF_UNUSED") } } else null
+                )
+
                 if (!app.isGoogleGms) {
-                    DetailItemRow(
-                        title = "6. MIUI millet_white",
-                        subtitle = "Danh sách trắng Millet Freeze Killer",
-                        isOk = status.isMilletWhite,
-                        statusText = if (status.isMilletWhite) "ĐÃ CÓ TRONG MILLET_WHITE" else "CHƯA CÓ TRONG MILLET_WHITE",
-                        actionText = if (status.isMilletWhite) "Thu hồi" else null,
-                        onActionClick = if (status.isMilletWhite) { { onRevokeSinglePermission("MILLET_WHITE") } } else null
-                    )
+                    if (status.isMilletWhiteSupported) {
+                        DetailItemRow(
+                            title = "7. MIUI millet_white",
+                            subtitle = "Danh sách trắng Millet Freeze Killer",
+                            isOk = status.isMilletWhite,
+                            statusText = if (status.isMilletWhite) "ĐÃ CÓ TRONG MILLET_WHITE" else "CHƯA CÓ TRONG MILLET_WHITE",
+                            actionText = if (status.isMilletWhite) "Thu hồi" else null,
+                            onActionClick = if (status.isMilletWhite) { { onRevokeSinglePermission("MILLET_WHITE") } } else null
+                        )
+                    }
 
-                    DetailItemRow(
-                        title = "7. MIUI cloud_lowlatency_whitelist",
-                        subtitle = "Danh sách ưu tiên độ trễ thấp Cloud",
-                        isOk = status.isCloudLowLatency,
-                        statusText = if (status.isCloudLowLatency) "ĐÃ CÓ TRONG LOWLATENCY_WHITELIST" else "CHƯA CÓ TRONG LOWLATENCY_WHITELIST",
-                        actionText = if (status.isCloudLowLatency) "Thu hồi" else null,
-                        onActionClick = if (status.isCloudLowLatency) { { onRevokeSinglePermission("CLOUD_LOWLATENCY") } } else null
-                    )
+                    if (status.isCloudLowLatencySupported) {
+                        DetailItemRow(
+                            title = "8. MIUI cloud_lowlatency_whitelist",
+                            subtitle = "Danh sách ưu tiên độ trễ thấp Cloud",
+                            isOk = status.isCloudLowLatency,
+                            statusText = if (status.isCloudLowLatency) "ĐÃ CÓ TRONG LOWLATENCY_WHITELIST" else "CHƯA CÓ TRONG LOWLATENCY_WHITELIST",
+                            actionText = if (status.isCloudLowLatency) "Thu hồi" else null,
+                            onActionClick = if (status.isCloudLowLatency) { { onRevokeSinglePermission("CLOUD_LOWLATENCY") } } else null
+                        )
+                    }
 
-                    DetailItemRow(
-                        title = "8. MIUI MILLET_NO_RESTRICT_APP",
-                        subtitle = "Danh sách ứng dụng Millet không hạn chế",
-                        isOk = status.isMilletNoRestrict,
-                        statusText = if (status.isMilletNoRestrict) "ĐÃ CÓ TRONG MILLET_NO_RESTRICT" else "CHƯA CÓ TRONG MILLET_NO_RESTRICT",
-                        actionText = if (status.isMilletNoRestrict) "Thu hồi" else null,
-                        onActionClick = if (status.isMilletNoRestrict) { { onRevokeSinglePermission("MILLET_NO_RESTRICT") } } else null
-                    )
+                    if (status.isMilletNoRestrictSupported) {
+                        DetailItemRow(
+                            title = "9. MIUI MILLET_NO_RESTRICT_APP",
+                            subtitle = "Danh sách ứng dụng Millet không hạn chế",
+                            isOk = status.isMilletNoRestrict,
+                            statusText = if (status.isMilletNoRestrict) "ĐÃ CÓ TRONG MILLET_NO_RESTRICT" else "CHƯA CÓ TRONG MILLET_NO_RESTRICT",
+                            actionText = if (status.isMilletNoRestrict) "Thu hồi" else null,
+                            onActionClick = if (status.isMilletNoRestrict) { { onRevokeSinglePermission("MILLET_NO_RESTRICT") } } else null
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
