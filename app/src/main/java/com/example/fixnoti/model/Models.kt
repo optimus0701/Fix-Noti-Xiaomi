@@ -40,11 +40,7 @@ data class AppDetailStatus(
         val cloudLowLatencyOk = !isCloudLowLatencySupported || isCloudLowLatency
         val milletNoRestrictOk = !isMilletNoRestrictSupported || isMilletNoRestrict
 
-        return if (isGms) {
-            baseOk
-        } else {
-            baseOk && milletWhiteOk && cloudLowLatencyOk && milletNoRestrictOk
-        }
+        return baseOk && milletWhiteOk && cloudLowLatencyOk && milletNoRestrictOk
     }
 }
 

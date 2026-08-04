@@ -219,11 +219,10 @@ class AppRepository {
         val autoRevokeOutput = ShizukuShellExecutor.executeCommand("appops get $packageName AUTO_REVOKE_PERMISSIONS_IF_UNUSED")
         val autoRevokePermissions = parseOpStatus(autoRevokeOutput)
 
-        // 7, 8, 9. Check MIUI System Tables (Skip for Google Play Services)
-        val isGms = packageName == "com.google.android.gms"
-        val (isMilletWhiteSupported, isMilletWhite) = if (isGms) Pair(false, true) else checkSystemSetting("millet_white", packageName)
-        val (isCloudLowLatencySupported, isCloudLowLatency) = if (isGms) Pair(false, true) else checkSystemSetting("cloud_lowlatency_whitelist", packageName)
-        val (isMilletNoRestrictSupported, isMilletNoRestrict) = if (isGms) Pair(false, true) else checkSystemSetting("MILLET_NO_RESTRICT_APP", packageName)
+        // 7, 8, 9. Check MIUI System Tables
+        val (isMilletWhiteSupported, isMilletWhite) = checkSystemSetting("millet_white", packageName)
+        val (isCloudLowLatencySupported, isCloudLowLatency) = checkSystemSetting("cloud_lowlatency_whitelist", packageName)
+        val (isMilletNoRestrictSupported, isMilletNoRestrict) = checkSystemSetting("MILLET_NO_RESTRICT_APP", packageName)
 
         AppDetailStatus(
             isWhitelisted = isWhitelisted,
@@ -268,22 +267,20 @@ class AppRepository {
         onLog(FixLog(name, pkg, "Đang thiết lập Manage if unused -> IGNORE..."))
         ShizukuShellExecutor.executeCommand("appops set --user 0 $pkg AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore")
 
-        // 6. Fix MIUI System Table Keys (Ngoại trừ Dịch vụ Google Play và chỉ khi có trong system table)
-        if (!app.isGoogleGms) {
-            if (isSystemSettingKeyPresent("millet_white")) {
-                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: millet_white..."))
-                addToSystemSetting("millet_white", pkg)
-            }
+        // 6. Fix MIUI System Table Keys (Chỉ khi có trong system table)
+        if (isSystemSettingKeyPresent("millet_white")) {
+            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: millet_white..."))
+            addToSystemSetting("millet_white", pkg)
+        }
 
-            if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
-                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: cloud_lowlatency_whitelist..."))
-                addToSystemSetting("cloud_lowlatency_whitelist", pkg)
-            }
+        if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
+            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: cloud_lowlatency_whitelist..."))
+            addToSystemSetting("cloud_lowlatency_whitelist", pkg)
+        }
 
-            if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
-                onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: MILLET_NO_RESTRICT_APP..."))
-                addToSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
-            }
+        if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
+            onLog(FixLog(name, pkg, "Đang thêm vào MIUI System: MILLET_NO_RESTRICT_APP..."))
+            addToSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
         }
 
         onLog(FixLog(name, pkg, "✓ Hoàn thành tối ưu cho $name!", isSuccess = true))
@@ -368,21 +365,19 @@ class AppRepository {
         onLog(FixLog(name, pkg, "Đang đặt lại Manage if unused -> ALLOW..."))
         ShizukuShellExecutor.executeCommand("appops set --user 0 $pkg AUTO_REVOKE_PERMISSIONS_IF_UNUSED allow")
 
-        if (!app.isGoogleGms) {
-            if (isSystemSettingKeyPresent("millet_white")) {
-                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
-                removeFromSystemSetting("millet_white", pkg)
-            }
+        if (isSystemSettingKeyPresent("millet_white")) {
+            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: millet_white..."))
+            removeFromSystemSetting("millet_white", pkg)
+        }
 
-            if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
-                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
-                removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
-            }
+        if (isSystemSettingKeyPresent("cloud_lowlatency_whitelist")) {
+            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: cloud_lowlatency_whitelist..."))
+            removeFromSystemSetting("cloud_lowlatency_whitelist", pkg)
+        }
 
-            if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
-                onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
-                removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
-            }
+        if (isSystemSettingKeyPresent("MILLET_NO_RESTRICT_APP")) {
+            onLog(FixLog(name, pkg, "Đang xóa khỏi MIUI System: MILLET_NO_RESTRICT_APP..."))
+            removeFromSystemSetting("MILLET_NO_RESTRICT_APP", pkg)
         }
 
         onLog(FixLog(name, pkg, "✓ Hoàn tất hủy bỏ tất cả cấu hình cho $name!", isSuccess = true))
